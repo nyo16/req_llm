@@ -311,6 +311,7 @@ defmodule ReqLLM.Model do
     :cerebras,
     :chutes,
     :cloudflare_workers_ai,
+    :compatible_with_openai,
     :deepinfra,
     :deepseek,
     :fastrouter,

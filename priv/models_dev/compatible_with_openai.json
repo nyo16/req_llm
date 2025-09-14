@@ -1,0 +1,43 @@
+{
+  "models": [
+    {
+      "id": "any-model",
+      "name": "Any OpenAI-Compatible Model",
+      "provider": "compatible_with_openai",
+      "provider_model_id": "any-model",
+      "attachment": false,
+      "cost": {
+        "input": 0.0,
+        "output": 0.0
+      },
+      "knowledge": "Variable",
+      "last_updated": "2024-01-01",
+      "limit": {
+        "context": 4096,
+        "output": 1024
+      },
+      "modalities": {
+        "input": [
+          "text"
+        ],
+        "output": [
+          "text"
+        ]
+      },
+      "open_weights": true,
+      "reasoning": false,
+      "release_date": "2024-01-01",
+      "temperature": true,
+      "tool_call": true
+    }
+  ],
+  "provider": {
+    "base_url": "http://localhost:1234/v1",
+    "doc": "OpenAI-compatible endpoint provider for local models and custom servers",
+    "env": [
+      "COMPATIBLE_WITH_OPENAI_API_KEY"
+    ],
+    "id": "compatible_with_openai",
+    "name": "Compatible with OpenAI"
+  }
+}

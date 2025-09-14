@@ -98,16 +98,58 @@ ReqLLM.stream_text!(model, "Write a short story")
 {:ok, embeddings} = ReqLLM.generate_embeddings("openai:text-embedding-3-small", ["Hello", "World"])
 ```
 
+## OpenAI-Compatible Endpoints
+
+Use any OpenAI-compatible server (LM Studio, Ollama, MLX, LocalAI, etc.) with the `compatible_with_openai` provider:
+
+```elixir
+# Local MLX server
+model = ReqLLM.Model.from!("compatible_with_openai:qwen3-4b-instruct-2507-mlx")
+
+{:ok, response} = ReqLLM.generate_text(
+  model,
+  "What day is it today?",
+  temperature: 0.7,
+  system_prompt: "Always answer in rhymes",
+  provider_options: [
+    base_url: "http://localhost:1234/v1"
+  ]
+)
+
+text = ReqLLM.Response.text(response)
+#=> "Today is Thursday, bright and clear..."
+
+# With authentication (if required)
+{:ok, response} = ReqLLM.generate_text(
+  model,
+  "Hello!",
+  provider_options: [
+    base_url: "https://your-server.com/v1",
+    api_key: "your-custom-key"
+  ]
+)
+
+# Streaming works too
+{:ok, response} = ReqLLM.stream_text(model, "Tell me a story",
+  provider_options: [base_url: "http://localhost:1234/v1"])
+
+ReqLLM.Response.text_stream(response)
+|> Enum.each(&IO.write/1)
+```
+
 ## Provider Support
 
-| Provider   | Chat | Streaming | Tools | Embeddings |
-|------------|------|-----------|-------|------------|
-| Anthropic  | ✓    | ✓         | ✓     | ✗          |
-| OpenAI     | ✓    | ✓         | ✓     | ✓          |
-| Google     | ✓    | ✓         | ✓     | ✗          |
-| Groq       | ✓    | ✓         | ✓     | ✗          |
-| xAI        | ✓    | ✓         | ✓     | ✗          |
-| OpenRouter | ✓    | ✓         | ✓     | ✗          |
+| Provider                    | Chat | Streaming | Tools | Embeddings |
+|-----------------------------|------|-----------|-------|------------|
+| Anthropic                   | ✓    | ✓         | ✓     | ✗          |
+| OpenAI                      | ✓    | ✓         | ✓     | ✓          |
+| Google                      | ✓    | ✓         | ✓     | ✗          |
+| Groq                        | ✓    | ✓         | ✓     | ✗          |
+| xAI                         | ✓    | ✓         | ✓     | ✗          |
+| OpenRouter                  | ✓    | ✓         | ✓     | ✗          |
+| **Compatible with OpenAI*** | ✓    | ✓         | ✓     | ✓          |
+
+*OpenAI-compatible endpoints: LM Studio, Ollama, MLX, LocalAI, and more
 
 ## API Key Management with JidoKeys
 
