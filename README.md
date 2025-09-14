@@ -149,7 +149,7 @@ ReqLLM.Response.text_stream(response)
 | OpenRouter                  | ✓    | ✓         | ✓     | ✗          |
 | **Compatible with OpenAI*** | ✓    | ✓         | ✓     | ✓          |
 
-*OpenAI-compatible endpoints: LM Studio, Ollama, MLX, LocalAI, and more
+*OpenAI-compatible endpoints: VLLM, Sglang, LM Studio, Ollama, MLX, LocalAI, and more
 
 ## API Key Management with JidoKeys
 
