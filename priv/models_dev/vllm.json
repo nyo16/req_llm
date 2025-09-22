@@ -16,7 +16,14 @@
         "output": 4096
       },
       "attachment": false,
-      "reasoning": false
+      "reasoning": false,
+      "open_weights": true,
+      "cost": {
+        "input": 0.0,
+        "output": 0.0
+      },
+      "last_updated": "2025-01-22",
+      "release_date": "2024-07-23"
     }
   ],
   "provider": {
