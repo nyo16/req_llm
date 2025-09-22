@@ -174,9 +174,12 @@ defmodule ReqLLM.Providers.VLLMTest do
            assert json["guided_json"]["type"] == "object"
            assert json["guided_json"]["properties"]["name"]["type"] == "string"
          end},
-        {[guided_regex: "^[A-Z][a-z]+$"], fn json -> assert json["guided_regex"] == "^[A-Z][a-z]+$" end},
-        {[guided_choice: ["yes", "no", "maybe"]], fn json -> assert json["guided_choice"] == ["yes", "no", "maybe"] end},
-        {[guided_grammar: "expr: term '+' term"], fn json -> assert json["guided_grammar"] == "expr: term '+' term" end}
+        {[guided_regex: "^[A-Z][a-z]+$"],
+         fn json -> assert json["guided_regex"] == "^[A-Z][a-z]+$" end},
+        {[guided_choice: ["yes", "no", "maybe"]],
+         fn json -> assert json["guided_choice"] == ["yes", "no", "maybe"] end},
+        {[guided_grammar: "expr: term '+' term"],
+         fn json -> assert json["guided_grammar"] == "expr: term '+' term" end}
       ]
 
       for {provider_opts, assertion} <- test_cases do

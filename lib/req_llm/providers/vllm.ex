@@ -140,7 +140,6 @@ defmodule ReqLLM.Providers.VLLM do
 
   require Logger
 
-
   @doc """
   Custom prepare_request for :object operations to maintain vLLM-specific structured output handling.
 
@@ -239,11 +238,12 @@ defmodule ReqLLM.Providers.VLLM do
     new_uri = URI.parse(new_base_url)
 
     # Update the request URL while preserving the path
-    updated_url = %{request.url |
-      scheme: new_uri.scheme,
-      host: new_uri.host,
-      port: new_uri.port,
-      path: Path.join(new_uri.path || "", request.url.path || "")
+    updated_url = %{
+      request.url
+      | scheme: new_uri.scheme,
+        host: new_uri.host,
+        port: new_uri.port,
+        path: Path.join(new_uri.path || "", request.url.path || "")
     }
 
     %{request | url: updated_url}
