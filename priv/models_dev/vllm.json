@@ -1,0 +1,29 @@
+{
+  "models": [
+    {
+      "id": "llama-3.1-8b-instant",
+      "name": "Llama 3.1 8B (Generic vLLM)",
+      "provider": "vllm",
+      "provider_model_id": "llama-3.1-8b-instant",
+      "modalities": {
+        "input": ["text"],
+        "output": ["text"]
+      },
+      "tool_call": true,
+      "temperature": true,
+      "limit": {
+        "context": 8192,
+        "output": 4096
+      },
+      "attachment": false,
+      "reasoning": false
+    }
+  ],
+  "provider": {
+    "base_url": null,
+    "doc": "Self-hosted vLLM server with OpenAI-compatible API",
+    "env": ["VLLM_BASE_URL", "VLLM_API_KEY"],
+    "id": "vllm",
+    "name": "vLLM"
+  }
+}
