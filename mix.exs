@@ -1,7 +1,7 @@
 defmodule ReqLLM.MixProject do
   use Mix.Project
 
-  @version "1.0.0-rc.2"
+  @version "1.0.0-rc.3"
   @source_url "https://github.com/agentjido/req_llm"
 
   def project do
@@ -46,7 +46,7 @@ defmodule ReqLLM.MixProject do
           "guides/api-reference.md",
           "guides/data-structures.md",
           "guides/model-metadata.md",
-          "guides/capability-testing.md",
+          "guides/coverage-testing.md",
           "guides/adding_a_provider.md"
         ],
         groups_for_extras: [
