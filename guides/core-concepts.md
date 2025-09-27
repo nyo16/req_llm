@@ -112,7 +112,7 @@ Canonical Response
 ### Composable Middleware
 
 ```elixir
-{:ok, model} = ReqLLM.Model.from("anthropic:claude-3-sonnet")
+{:ok, model} = ReqLLM.Model.from("anthropic:claude-3-sonnet-20240229")
 {:ok, provider} = ReqLLM.provider(:anthropic)
 
 request = Req.new()
@@ -126,11 +126,11 @@ request = Req.new()
 ## Format Translation
 
 ### Context Encoding
-- `ReqLLM.Context.Codec` handles canonical-to-provider request format
-- Provider-specific wrappers transform messages and options
+- Provider callbacks handle canonical-to-provider request format
+- Built-in defaults provide OpenAI-style encoding, providers can override
 
 ### Response Decoding  
-- `ReqLLM.Response.Codec` handles provider-to-canonical response format
+- Provider callbacks handle provider-to-canonical response format
 - Unified streaming chunks across all providers
 
 ## Req Integration
@@ -153,10 +153,10 @@ Transport vs Format separation:
 
 ```elixir
 # API call
-ReqLLM.generate_text("anthropic:claude-3-sonnet", "Hello")
+ReqLLM.generate_text("anthropic:claude-3-sonnet-20240229", "Hello")
 
 # Model resolution  
-{:ok, model} = ReqLLM.Model.from("anthropic:claude-3-sonnet")
+{:ok, model} = ReqLLM.Model.from("anthropic:claude-3-sonnet-20240229")
 
 # Provider lookup
 {:ok, provider} = ReqLLM.provider(:anthropic)
@@ -174,7 +174,7 @@ request = Req.new() |> provider.attach(model, [])
 ### Streaming Flow
 
 ```elixir
-{:ok, response} = ReqLLM.stream_text("anthropic:claude-3-sonnet", "Tell a story")
+{:ok, response} = ReqLLM.stream_text("anthropic:claude-3-sonnet-20240229", "Tell a story")
 # Returns %ReqLLM.Response{stream?: true, stream: #Stream<...>}
 
 response.stream
@@ -212,7 +212,7 @@ end
 ### Integration Points
 
 1. `ReqLLM.Provider` behavior with `prepare_request/4` and `attach/3` callbacks
-2. Context/Response codec protocols for format translation  
+2. Provider callbacks with built-in defaults for format translation  
 3. Models.dev metadata for capabilities and pricing
 
 ## Testing

@@ -320,6 +320,54 @@ defmodule ReqLLM.Providers.GoogleTest do
       assert List.last(response.context.messages).role == :assistant
     end
 
+    test "decode_response preserves tool calls" do
+      google_response = %{
+        "candidates" => [
+          %{
+            "content" => %{
+              "parts" => [
+                %{
+                  "functionCall" => %{
+                    "name" => "demo_tool",
+                    "args" => %{"payload" => "value"},
+                    "id" => "call-1"
+                  }
+                }
+              ],
+              "role" => "model"
+            },
+            "finishReason" => "STOP"
+          }
+        ],
+        "usageMetadata" => %{
+          "promptTokenCount" => 12,
+          "candidatesTokenCount" => 3,
+          "totalTokenCount" => 15
+        }
+      }
+
+      mock_resp = %Req.Response{status: 200, body: google_response}
+
+      context = context_fixture()
+
+      mock_req = %Req.Request{
+        options: [context: context, stream: false, model: "gemini-1.5-flash"]
+      }
+
+      {_req, resp} = Google.decode_response({mock_req, mock_resp})
+
+      response = resp.body
+      assert %ReqLLM.Response{} = response
+
+      tool_calls = ReqLLM.Response.tool_calls(response)
+
+      assert [%{name: "demo_tool", arguments: %{"payload" => "value"}, id: tool_call_id}] =
+               tool_calls
+
+      assert tool_call_id == "call-1"
+      assert ReqLLM.Response.finish_reason(response) == :stop
+    end
+
     test "decode_response handles streaming responses" do
       # Create mock streaming chunks (Google format)
       stream_chunks = [
@@ -483,6 +531,45 @@ defmodule ReqLLM.Providers.GoogleTest do
       {:error, :invalid_body} = Google.extract_usage("invalid", model)
       {:error, :invalid_body} = Google.extract_usage(nil, model)
       {:error, :invalid_body} = Google.extract_usage(123, model)
+    end
+
+    test "extract_usage with cached content tokens" do
+      model = ReqLLM.Model.from!("google:gemini-1.5-flash")
+
+      body_with_cached_tokens = %{
+        "usageMetadata" => %{
+          "promptTokenCount" => 500,
+          "candidatesTokenCount" => 200,
+          "totalTokenCount" => 700,
+          "promptFeedback" => %{
+            "cachedContentTokenCount" => 120
+          }
+        }
+      }
+
+      {:ok, usage} = Google.extract_usage(body_with_cached_tokens, model)
+      assert usage["promptTokenCount"] == 500
+      assert usage["candidatesTokenCount"] == 200
+      assert usage["totalTokenCount"] == 700
+      assert usage["cached_input"] == 120
+    end
+
+    test "extract_usage without cached content tokens" do
+      model = ReqLLM.Model.from!("google:gemini-1.5-flash")
+
+      body_without_cached_tokens = %{
+        "usageMetadata" => %{
+          "promptTokenCount" => 10,
+          "candidatesTokenCount" => 20,
+          "totalTokenCount" => 30
+        }
+      }
+
+      {:ok, usage} = Google.extract_usage(body_without_cached_tokens, model)
+      assert usage["promptTokenCount"] == 10
+      assert usage["candidatesTokenCount"] == 20
+      assert usage["totalTokenCount"] == 30
+      refute Map.has_key?(usage, "cached_input")
     end
   end
 

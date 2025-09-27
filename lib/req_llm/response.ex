@@ -14,7 +14,7 @@ defmodule ReqLLM.Response do
       # Basic response usage
       {:ok, response} = ReqLLM.generate_text("anthropic:claude-3-sonnet", context)
       response.text()  #=> "Hello! I'm Claude."
-      response.usage()  #=> %{input_tokens: 12, output_tokens: 4}
+      response.usage()  #=> %{input_tokens: 12, output_tokens: 4, total_cost: 0.016}
 
       # Multi-turn conversation (no manual context building)
       {:ok, response2} = ReqLLM.generate_text("anthropic:claude-3-sonnet", response.context)
@@ -49,7 +49,7 @@ defmodule ReqLLM.Response do
     field(:stream, Enumerable.t() | nil, default: nil)
 
     # ---------- Metadata ----------
-    field(:usage, %{optional(atom()) => integer()} | nil)
+    field(:usage, map() | nil)
     field(:finish_reason, atom() | String.t() | nil)
     # Raw provider extras
     field(:provider_meta, map(), default: %{})
@@ -133,10 +133,10 @@ defmodule ReqLLM.Response do
   ## Examples
 
       iex> ReqLLM.Response.usage(response)
-      %{input_tokens: 12, output_tokens: 8, total_tokens: 20}
+      %{input_tokens: 12, output_tokens: 8, total_tokens: 20, input_cost: 0.01, output_cost: 0.02, total_cost: 0.03}
 
   """
-  @spec usage(t()) :: %{optional(atom()) => integer()} | nil
+  @spec usage(t()) :: map() | nil
   def usage(%__MODULE__{usage: usage}), do: usage
 
   @doc """
@@ -226,7 +226,7 @@ defmodule ReqLLM.Response do
   Decode provider response data into a canonical ReqLLM.Response.
 
   This is a façade function that accepts raw provider data and a model specification,
-  and directly calls the Response.Codec.decode_response/2 protocol for zero-ceremony decoding.
+  and directly calls the provider's decode_response/1 callback for zero-ceremony decoding.
 
   Supports both Model struct and string inputs, automatically resolving model
   strings using Model.from!/1.
@@ -256,11 +256,19 @@ defmodule ReqLLM.Response do
       if function_exported?(provider_mod, :wrap_response, 1) do
         provider_mod.wrap_response(raw_data)
       else
-        # fallback for providers that implement protocol directly
+        # fallback for providers without wrap_response/1
         raw_data
       end
 
-    ReqLLM.Response.Codec.decode_response(wrapped_data, model)
+    # Call provider's decode_response pipeline step function directly
+    fake_request = %Req.Request{private: %{req_llm_model: model}}
+    fake_response = %Req.Response{body: wrapped_data, status: 200}
+    {_req, result} = provider_mod.decode_response({fake_request, fake_response})
+
+    case result do
+      %Req.Response{body: %ReqLLM.Response{} = response} -> {:ok, response}
+      error -> {:error, error}
+    end
   end
 
   @doc """

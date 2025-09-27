@@ -2,10 +2,9 @@ defmodule ReqLLM.Providers.Google do
   @moduledoc """
   Google Gemini provider – built on the OpenAI baseline defaults with Gemini-specific customizations.
 
-  ## Protocol Usage
+  ## Implementation
 
-  Uses the generic `ReqLLM.Context.Codec` and `ReqLLM.Response.Codec` protocols
-  with custom encoding/decoding to translate between OpenAI format and Gemini API format.
+  Uses built-in defaults with custom encoding/decoding to translate between OpenAI format and Gemini API format.
 
   ## Google-Specific Extensions
 
@@ -205,12 +204,26 @@ defmodule ReqLLM.Providers.Google do
   @impl ReqLLM.Provider
   def extract_usage(body, _model) when is_map(body) do
     case body do
-      %{"usageMetadata" => usage} -> {:ok, usage}
-      _ -> {:error, :no_usage_found}
+      %{"usageMetadata" => usage} ->
+        usage_with_cached = add_cached_tokens(usage)
+        {:ok, usage_with_cached}
+
+      _ ->
+        {:error, :no_usage_found}
     end
   end
 
   def extract_usage(_, _), do: {:error, :invalid_body}
+
+  defp add_cached_tokens(usage) do
+    cached_tokens = get_in(usage, ["promptFeedback", "cachedContentTokenCount"]) || 0
+
+    if cached_tokens > 0 do
+      Map.put(usage, "cached_input", cached_tokens)
+    else
+      usage
+    end
+  end
 
   @impl ReqLLM.Provider
   def translate_options(_operation, _model, opts) do
@@ -252,9 +265,9 @@ defmodule ReqLLM.Providers.Google do
     {system_instruction, contents} =
       case request.options[:context] do
         %ReqLLM.Context{} = ctx ->
-          model = request.options[:model]
+          model_name = request.options[:model]
           # Convert OpenAI-style context to Gemini format
-          encoded = ReqLLM.Context.Codec.encode_request(ctx, model)
+          encoded = ReqLLM.Provider.Defaults.encode_context_to_openai_format(ctx, model_name)
           messages = encoded[:messages] || encoded["messages"] || []
           split_messages_for_gemini(messages)
 
@@ -321,7 +334,7 @@ defmodule ReqLLM.Providers.Google do
             if is_streaming do
               chunk_stream =
                 resp.body
-                |> Stream.flat_map(&ReqLLM.Response.Codec.decode_sse_event(&1, model))
+                |> Stream.flat_map(&ReqLLM.Provider.Defaults.default_decode_sse_event(&1, model))
                 |> Stream.reject(&is_nil/1)
 
               response = %ReqLLM.Response{
@@ -342,7 +355,9 @@ defmodule ReqLLM.Providers.Google do
 
               # Convert Google format to OpenAI format, then decode
               openai_format = convert_google_to_openai_format(body)
-              {:ok, response} = ReqLLM.Response.Codec.decode_response(openai_format, model)
+
+              {:ok, response} =
+                ReqLLM.Provider.Defaults.decode_response_body_openai_format(openai_format, model)
 
               # Merge original context with the assistant response
               merged_response =
@@ -377,11 +392,21 @@ defmodule ReqLLM.Providers.Google do
             |> Enum.filter(&Map.has_key?(&1, "text"))
             |> Enum.map_join("", &Map.get(&1, "text"))
 
+          tool_calls = extract_tool_calls(parts)
+
+          message = %{
+            "role" => "assistant",
+            "content" => message_content
+          }
+
+          message =
+            case tool_calls do
+              [] -> message
+              _ -> Map.put(message, "tool_calls", tool_calls)
+            end
+
           %{
-            "message" => %{
-              "role" => "assistant",
-              "content" => message_content
-            },
+            "message" => message,
             "finish_reason" => normalize_google_finish_reason(candidate["finishReason"])
           }
 
@@ -400,6 +425,26 @@ defmodule ReqLLM.Providers.Google do
   end
 
   defp convert_google_to_openai_format(body), do: body
+
+  defp extract_tool_calls(parts) do
+    for %{"functionCall" => %{} = call} <- parts do
+      call_id = Map.get(call, "id", "tool_call_#{System.unique_integer([:positive])}")
+
+      encoded_args =
+        call
+        |> Map.get("args", %{})
+        |> Jason.encode!()
+
+      %{
+        "id" => call_id,
+        "type" => "function",
+        "function" => %{
+          "name" => call["name"],
+          "arguments" => encoded_args
+        }
+      }
+    end
+  end
 
   defp normalize_google_finish_reason("STOP"), do: "stop"
   defp normalize_google_finish_reason("MAX_TOKENS"), do: "length"
@@ -456,16 +501,37 @@ defmodule ReqLLM.Providers.Google do
   # Helper to convert OpenAI-style messages to Gemini format (non-system messages only)
   defp convert_messages_to_gemini(messages) do
     Enum.map(messages, fn message ->
+      # Extract role from either map with string keys or struct
+      raw_role =
+        case message do
+          %{role: role} -> role
+          %{"role" => role} -> role
+          _ -> "user"
+        end
+
+      # Convert role to Gemini format
       role =
-        case message.role do
+        case raw_role do
           :user -> "user"
+          "user" -> "user"
           :assistant -> "model"
-          role when is_binary(role) and role != "system" -> role
-          role when role != :system -> to_string(role)
+          "assistant" -> "model"
+          :system -> "user"
+          "system" -> "user"
+          other when is_binary(other) -> other
+          other -> to_string(other)
+        end
+
+      # Extract content from either map with string keys or struct
+      raw_content =
+        case message do
+          %{content: content} -> content
+          %{"content" => content} -> content
+          _ -> ""
         end
 
       parts =
-        case message.content do
+        case raw_content do
           content when is_binary(content) -> [%{text: content}]
           parts when is_list(parts) -> Enum.map(parts, &convert_content_part/1)
         end
@@ -502,7 +568,9 @@ defmodule ReqLLM.Providers.Google do
   end
 
   defp convert_content_part(%{type: :text, content: text}), do: %{text: text}
+  defp convert_content_part(%{"type" => "text", "text" => text}), do: %{text: text}
   defp convert_content_part(%{text: text}), do: %{text: text}
+  defp convert_content_part(%{"text" => text}), do: %{text: text}
   defp convert_content_part(text) when is_binary(text), do: %{text: text}
 
   defp convert_content_part(%{type: :file, data: data, media_type: media_type})
@@ -519,4 +587,9 @@ defmodule ReqLLM.Providers.Google do
 
   # TODO: Add support for images, audio, video when multimodal support is added
   defp convert_content_part(part), do: %{text: to_string(part)}
+
+  @impl ReqLLM.Provider
+  def decode_sse_event(event, model) do
+    ReqLLM.Provider.Defaults.default_decode_sse_event(event, model)
+  end
 end
