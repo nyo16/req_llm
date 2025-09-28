@@ -42,8 +42,8 @@ defmodule ReqLLM.Providers.Anthropic.Context do
     |> filter_nil_values()
   end
 
-  defp extract_model_name(%{model: model_name}), do: model_name
   defp extract_model_name(%ReqLLM.Model{model: model_name}), do: model_name
+  defp extract_model_name(%{model: model_name}), do: model_name
   defp extract_model_name(model) when is_binary(model), do: model
   defp extract_model_name(_), do: "unknown"
 
